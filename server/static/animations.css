@@ -1,0 +1,109 @@
+/* animations.css — Ambient system-state driven animations */
+
+/* ── Keyframes ─────────────────────────────────────────── */
+@keyframes pulse-anomaly {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(255, 59, 59, 0.7); }
+  50%       { box-shadow: 0 0 0 22px rgba(255, 59, 59, 0); }
+}
+
+@keyframes pulse-glow-blue {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(56, 182, 255, 0.5); }
+  50%       { box-shadow: 0 0 0 16px rgba(56, 182, 255, 0); }
+}
+
+@keyframes pulse-glow-orange {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(255, 149, 30, 0.6); }
+  50%       { box-shadow: 0 0 0 20px rgba(255, 149, 30, 0); }
+}
+
+@keyframes skeleton-shimmer {
+  0%   { background-position: -400px 0; }
+  100% { background-position: 400px 0; }
+}
+
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(14px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slide-up {
+  from { opacity: 0; transform: translateY(30px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes dot-blink {
+  0%, 80%, 100% { opacity: 0; }
+  40%           { opacity: 1; }
+}
+
+@keyframes bg-shift-normal {
+  0%   { background-position: 0% 50%; }
+  50%  { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+@keyframes ripple {
+  0%   { transform: scale(0.8); opacity: 1; }
+  100% { transform: scale(2.4); opacity: 0; }
+}
+
+@keyframes float-card {
+  0%, 100% { transform: translateY(0px); }
+  50%       { transform: translateY(-4px); }
+}
+
+/* ── Skeleton loader ─────────────────────────────────────── */
+.skeleton {
+  background: linear-gradient(90deg, #1e2a3a 25%, #243347 50%, #1e2a3a 75%);
+  background-size: 800px 100%;
+  animation: skeleton-shimmer 1.6s infinite linear;
+  border-radius: 8px;
+  color: transparent !important;
+  user-select: none;
+  pointer-events: none;
+}
+
+/* ── Card glow for active data ───────────────────────────── */
+.card-active {
+  animation: pulse-glow-blue 2.4s ease-in-out infinite, float-card 4s ease-in-out infinite;
+}
+
+.card-anomaly {
+  animation: pulse-anomaly 1.2s ease-in-out infinite !important;
+  border-color: rgba(255, 59, 59, 0.6) !important;
+}
+
+.card-crowd-high {
+  animation: pulse-glow-orange 1.8s ease-in-out infinite;
+  border-color: rgba(255, 149, 30, 0.55) !important;
+}
+
+/* ── Status dot pulse ────────────────────────────────────── */
+.dot-pulse {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  position: relative;
+}
+.dot-pulse::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  animation: ripple 1.8s ease-out infinite;
+}
+
+.dot-online        { background: #22c55e; }
+.dot-online::after { background: rgba(34,197,94, 0.4); }
+.dot-offline       { background: #6b7280; }
+.dot-warning       { background: #f59e0b; }
+.dot-warning::after{ background: rgba(245,158,11,0.4); animation: ripple 1.2s ease-out infinite; }
+
+/* ── Fade-in utility ─────────────────────────────────────── */
+.fade-in   { animation: fade-in 0.55s ease both; }
+.slide-up  { animation: slide-up 0.6s cubic-bezier(.22,.68,0,1.2) both; }

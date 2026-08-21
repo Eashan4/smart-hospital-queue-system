@@ -1,0 +1,679 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>AIoT Smart Hospital — Live Monitor</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏥</text></svg>"/>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet"/>
+<script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+
+:root{
+  --bg:#060910;--bg2:#0d1220;--bg3:#121929;
+  --card:#0f1623;--card2:#141d2e;
+  --accent:#4f8ef7;--accent2:#7eb3ff;--accent-dim:rgba(79,142,247,0.15);
+  --green:#00d97e;--green-dim:rgba(0,217,126,0.12);
+  --red:#ff4757;--red-dim:rgba(255,71,87,0.12);
+  --amber:#ffb833;--amber-dim:rgba(255,184,51,0.12);
+  --cyan:#00d4ff;--cyan-dim:rgba(0,212,255,0.1);
+  --purple:#a78bfa;
+  --txt:#dce8ff;--txt2:#7d9abd;--txt3:#415570;
+  --border:rgba(255,255,255,0.06);--border2:rgba(255,255,255,0.1);
+  --r:14px;--rs:8px;
+  --mono:'Space Mono',monospace;
+}
+
+html{font-size:14px;scroll-behavior:smooth}
+body{
+  font-family:'Space Grotesk',system-ui,sans-serif;
+  background:var(--bg);color:var(--txt);
+  min-height:100vh;overflow-x:hidden;
+  background-image:
+    radial-gradient(ellipse 60% 40% at 10% 0%,rgba(79,142,247,0.07) 0%,transparent 60%),
+    radial-gradient(ellipse 40% 60% at 90% 100%,rgba(0,212,255,0.05) 0%,transparent 60%),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='60' height='60'%3E%3Ccircle cx='30' cy='30' r='0.5' fill='rgba(255,255,255,0.03)'/%3E%3C/svg%3E");
+}
+
+::-webkit-scrollbar{width:4px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--accent);border-radius:2px;opacity:0.5}
+
+.wrap{max-width:1080px;margin:0 auto;padding:24px 16px 60px}
+
+/* ── HEADER ── */
+.hdr{
+  display:flex;align-items:flex-start;justify-content:space-between;
+  gap:16px;padding:28px 32px;margin-bottom:24px;
+  background:linear-gradient(135deg,var(--bg2),var(--bg3));
+  border:1px solid var(--border2);border-radius:20px;
+  position:relative;overflow:hidden;
+}
+.hdr::before{
+  content:'';position:absolute;inset:0;border-radius:20px;
+  background:linear-gradient(135deg,rgba(79,142,247,0.04),rgba(0,212,255,0.03));
+  pointer-events:none;
+}
+.hdr-accent{
+  position:absolute;top:0;left:0;right:0;height:1px;
+  background:linear-gradient(90deg,transparent,var(--accent),var(--cyan),transparent);
+  opacity:0.8;
+}
+.hdr-title{font-size:1.6rem;font-weight:700;letter-spacing:-0.03em;line-height:1.1}
+.hdr-title .hl{
+  background:linear-gradient(135deg,var(--accent2),var(--cyan));
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+}
+.hdr-sub{font-size:0.78rem;color:var(--txt3);margin-top:6px;line-height:1.5}
+.hdr-right{display:flex;flex-direction:column;align-items:flex-end;gap:10px;flex-shrink:0}
+.live-pill{
+  display:flex;align-items:center;gap:7px;
+  padding:7px 16px;border-radius:40px;
+  background:var(--green-dim);border:1px solid rgba(0,217,126,0.25);
+  font-size:0.72rem;font-weight:700;color:var(--green);
+  letter-spacing:0.08em;text-transform:uppercase;
+}
+.dot{width:7px;height:7px;border-radius:50%;background:var(--green);animation:blink 1.4s ease-in-out infinite}
+@keyframes blink{0%,100%{box-shadow:0 0 0 0 rgba(0,217,126,0.5)}50%{box-shadow:0 0 0 7px transparent}}
+.conn-status{
+  font-size:0.72rem;padding:5px 12px;border-radius:20px;font-weight:600;
+  transition:all 0.3s;
+}
+.conn-connecting{background:var(--amber-dim);color:var(--amber);border:1px solid rgba(255,184,51,0.25)}
+.conn-connected{background:var(--green-dim);color:var(--green);border:1px solid rgba(0,217,126,0.2)}
+.conn-error{background:var(--red-dim);color:var(--red);border:1px solid rgba(255,71,87,0.2)}
+
+/* ── TOPIC CONFIG BAR ── */
+.topic-bar{
+  display:flex;align-items:center;gap:10px;
+  padding:14px 20px;margin-bottom:20px;
+  background:var(--card);border:1px solid var(--border);border-radius:var(--r);
+  flex-wrap:wrap;
+}
+.topic-bar label{font-size:0.72rem;color:var(--txt3);text-transform:uppercase;letter-spacing:0.07em;white-space:nowrap}
+.topic-input{
+  flex:1;min-width:200px;background:var(--bg2);border:1px solid var(--border2);
+  border-radius:var(--rs);padding:8px 14px;
+  color:var(--txt);font-family:var(--mono);font-size:0.8rem;
+  outline:none;transition:border-color 0.2s;
+}
+.topic-input:focus{border-color:var(--accent)}
+.topic-btn{
+  padding:8px 20px;background:var(--accent);color:#fff;
+  border:none;border-radius:var(--rs);font-size:0.8rem;font-weight:600;
+  cursor:pointer;transition:opacity 0.2s;white-space:nowrap;
+}
+.topic-btn:hover{opacity:0.85}
+.last-update{font-size:0.7rem;color:var(--txt3);font-family:var(--mono);margin-left:auto}
+
+/* ── WAITING SCREEN ── */
+.waiting{
+  text-align:center;padding:60px 20px;
+  background:var(--card);border:1px solid var(--border);border-radius:var(--r);
+  margin-bottom:24px;display:none;
+}
+.waiting.show{display:block}
+.waiting-icon{font-size:3rem;margin-bottom:16px;animation:spin 2s linear infinite}
+@keyframes spin{from{transform:rotate(0)}to{transform:rotate(360deg)}}
+.waiting h3{font-size:1.1rem;color:var(--txt2);margin-bottom:8px}
+.waiting p{font-size:0.8rem;color:var(--txt3)}
+
+/* ── METRICS ── */
+.metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:20px}
+.mcard{
+  background:var(--card);border:1px solid var(--border);border-radius:var(--r);
+  padding:22px 18px;position:relative;overflow:hidden;
+  transition:transform 0.25s,box-shadow 0.25s;
+  cursor:default;
+}
+.mcard:hover{transform:translateY(-3px)}
+.mcard-bar{position:absolute;top:0;left:0;right:0;height:2px;border-radius:var(--r) var(--r) 0 0}
+.mcard-queue .mcard-bar{background:linear-gradient(90deg,var(--purple),var(--accent))}
+.mcard-queue:hover{box-shadow:0 8px 32px rgba(167,139,250,0.12)}
+.mcard-crowd .mcard-bar{background:linear-gradient(90deg,var(--cyan),#0af)}
+.mcard-crowd:hover{box-shadow:0 8px 32px var(--cyan-dim)}
+.mcard-wait .mcard-bar{background:linear-gradient(90deg,var(--amber),#ffd580)}
+.mcard-wait:hover{box-shadow:0 8px 32px var(--amber-dim)}
+.mcard-rfid .mcard-bar{background:linear-gradient(90deg,var(--green),#34d399)}
+.mcard-rfid:hover{box-shadow:0 8px 32px var(--green-dim)}
+.mcard-lbl{font-size:0.65rem;text-transform:uppercase;letter-spacing:0.1em;color:var(--txt3);margin-bottom:10px}
+.mcard-icon{font-size:1.5rem;margin-bottom:8px}
+.mcard-val{font-size:2.4rem;font-weight:700;letter-spacing:-0.03em;line-height:1}
+.mcard-queue .mcard-val{color:var(--purple)}
+.mcard-crowd .mcard-val{color:var(--cyan)}
+.mcard-wait .mcard-val{color:var(--amber)}
+.mcard-rfid .mcard-val{
+  font-size:0.9rem;color:var(--green);font-family:var(--mono);
+  word-break:break-all;font-weight:400;line-height:1.5;
+}
+.mcard-sub{font-size:0.68rem;color:var(--txt3);margin-top:8px}
+.mcard-detail{font-size:0.68rem;margin-top:8px;display:flex;gap:10px;flex-wrap:wrap}
+
+/* ── ANOMALY ── */
+.anomaly-pill{
+  display:inline-flex;align-items:center;gap:5px;
+  padding:4px 10px;border-radius:6px;font-size:0.68rem;font-weight:600;
+  margin-top:10px;border:1px solid;
+}
+.ap-na{background:rgba(65,85,112,0.2);color:var(--txt3);border-color:var(--border)}
+.ap-ok{background:var(--green-dim);color:var(--green);border-color:rgba(0,217,126,0.2)}
+.ap-bad{background:var(--red-dim);color:var(--red);border-color:rgba(255,71,87,0.3);animation:aflash 0.9s ease-in-out infinite}
+@keyframes aflash{0%,100%{opacity:1}50%{opacity:0.55}}
+
+/* ── STATUS ROW ── */
+.status-row{display:flex;gap:12px;margin-bottom:20px;flex-wrap:wrap}
+.schip{
+  display:flex;align-items:center;gap:10px;
+  padding:12px 16px;border-radius:var(--rs);
+  background:var(--card);border:1px solid var(--border);
+  flex:1;min-width:160px;
+}
+.schip-ico{font-size:1.1rem}
+.schip-lbl{font-size:0.65rem;text-transform:uppercase;letter-spacing:0.07em;color:var(--txt3)}
+.schip-val{font-size:0.85rem;font-weight:600;margin-top:2px}
+.sc-online .schip-val{color:var(--green)}
+.sc-model .schip-val{color:var(--amber)}
+.sc-model.rdy .schip-val{color:var(--green)}
+.sc-uptime .schip-val{color:var(--cyan);font-family:var(--mono);font-size:0.78rem}
+
+/* ── SECTION ── */
+.sec-hdr{
+  font-size:0.68rem;text-transform:uppercase;letter-spacing:0.12em;
+  color:var(--txt3);margin-bottom:14px;padding-left:2px;
+  display:flex;align-items:center;gap:10px;
+}
+.sec-badge{
+  font-size:0.62rem;padding:2px 9px;border-radius:12px;
+  background:var(--accent-dim);color:var(--accent2);font-weight:600;
+}
+
+/* ── TOKEN GRID ── */
+.tok-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:14px}
+.tok{
+  background:var(--card);border:1px solid var(--border);border-radius:var(--r);
+  padding:18px 10px;text-align:center;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;
+  min-height:150px;position:relative;overflow:hidden;
+  transition:all 0.4s cubic-bezier(0.4,0,0.2,1);
+}
+.tok-empty{border-style:dashed;opacity:0.3}
+.tok-pending{
+  border-color:rgba(255,184,51,0.5);
+  box-shadow:0 0 20px rgba(255,184,51,0.15),inset 0 0 20px rgba(255,184,51,0.03);
+  animation:tpulse 2s ease-in-out infinite;
+}
+@keyframes tpulse{
+  0%,100%{box-shadow:0 0 20px rgba(255,184,51,0.15)}
+  50%{box-shadow:0 0 35px rgba(255,184,51,0.28)}
+}
+.tok-verified{
+  border-color:rgba(0,217,126,0.45);
+  box-shadow:0 0 20px rgba(0,217,126,0.12),inset 0 0 20px rgba(0,217,126,0.03);
+}
+.tok-slot{font-size:0.6rem;text-transform:uppercase;letter-spacing:0.12em;color:var(--txt3);font-weight:600}
+.tok-emo{font-size:1.9rem;margin:3px 0}
+.tok-st{font-size:0.68rem;font-weight:700;letter-spacing:0.04em}
+.tok-empty-st{color:var(--txt3)}
+.tok-pending-st{color:var(--amber)}
+.tok-verified-st{color:var(--green)}
+.tok-timer{font-family:var(--mono);font-size:1.4rem;font-weight:700;line-height:1}
+.tok-rfid{
+  font-family:var(--mono);font-size:0.62rem;color:var(--green);
+  background:rgba(0,217,126,0.08);padding:3px 7px;border-radius:5px;
+  margin-top:2px;word-break:break-all;
+}
+.cdown-bar{position:absolute;bottom:0;left:0;right:0;height:3px;background:rgba(255,184,51,0.1)}
+.cdown-fill{height:100%;background:linear-gradient(90deg,var(--amber),#ffd580);transition:width 0.2s linear}
+
+.tok-summary{display:flex;gap:18px;margin-bottom:22px;flex-wrap:wrap;padding-left:2px}
+.ts-item{font-size:0.72rem;color:var(--txt3);display:flex;align-items:center;gap:6px}
+.ts-dot{width:7px;height:7px;border-radius:50%}
+
+/* ── ML FEATURES ── */
+.feats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:22px}
+.feat{
+  background:var(--card);border:1px solid var(--border);border-radius:var(--rs);
+  padding:16px;
+}
+.feat-lbl{font-size:0.63rem;text-transform:uppercase;letter-spacing:0.08em;color:var(--txt3);margin-bottom:7px}
+.feat-val{font-size:1.25rem;font-weight:700;font-family:var(--mono);color:var(--accent2)}
+.feat-desc{font-size:0.63rem;color:var(--txt3);margin-top:5px}
+
+/* ── SESSION STATS ── */
+.sstats{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:24px}
+.sstat{
+  background:var(--card);border:1px solid var(--border);border-radius:var(--rs);
+  padding:14px 12px;text-align:center;
+}
+.sstat-val{font-size:1.4rem;font-weight:700;color:var(--cyan);font-family:var(--mono)}
+.sstat-lbl{font-size:0.62rem;color:var(--txt3);margin-top:4px;text-transform:uppercase;letter-spacing:0.06em}
+
+/* ── HISTORY MINI CHART ── */
+.chart-wrap{
+  background:var(--card);border:1px solid var(--border);border-radius:var(--r);
+  padding:20px;margin-bottom:22px;
+}
+.chart-row{display:flex;gap:3px;align-items:flex-end;height:60px}
+.chart-bar{
+  flex:1;border-radius:3px 3px 0 0;background:var(--accent-dim);
+  transition:height 0.4s ease,background 0.3s;min-height:2px;
+}
+
+/* ── FOOTER ── */
+.ftr{
+  text-align:center;font-size:0.7rem;color:var(--txt3);
+  padding:20px;border-top:1px solid var(--border);
+}
+.ftr a{color:var(--accent2);text-decoration:none}
+.ftr strong{color:var(--txt2)}
+
+/* ── RESPONSIVE ── */
+@media(max-width:800px){
+  .metrics{grid-template-columns:repeat(2,1fr)}
+  .tok-grid{grid-template-columns:repeat(3,1fr)}
+  .feats{grid-template-columns:repeat(2,1fr)}
+  .sstats{grid-template-columns:repeat(3,1fr)}
+}
+@media(max-width:520px){
+  .hdr{flex-direction:column}
+  .metrics{grid-template-columns:1fr 1fr}
+  .tok-grid{grid-template-columns:1fr 1fr}
+  .sstats{grid-template-columns:repeat(2,1fr)}
+  .mcard-val{font-size:1.8rem}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- HEADER -->
+  <div class="hdr">
+    <div class="hdr-accent"></div>
+    <div>
+      <div class="hdr-title">🏥 <span class="hl">Smart Hospital</span> Queue Monitor</div>
+      <div class="hdr-sub">
+        RFID Token Verification · IR Edge Detection · On-Device AI Prediction<br/>
+        Live via MQTT WebSocket · No Backend Required · 100% ESP8266
+      </div>
+    </div>
+    <div class="hdr-right">
+      <div class="live-pill"><div class="dot"></div>LIVE</div>
+      <div class="conn-status conn-connecting" id="conn-status">⟳ Connecting…</div>
+    </div>
+  </div>
+
+  <!-- TOPIC CONFIG -->
+  <div class="topic-bar">
+    <label>📡 MQTT Topic</label>
+    <input class="topic-input" id="topic-input" type="text"
+      value="smarthospital/queue/umang/data"
+      placeholder="smarthospital/queue/umang/data"/>
+    <button class="topic-btn" onclick="reconnect()">Connect</button>
+    <div class="last-update" id="last-upd">—</div>
+  </div>
+
+  <!-- WAITING -->
+  <div class="waiting" id="waiting">
+    <div class="waiting-icon">📡</div>
+    <h3>Waiting for ESP8266 data…</h3>
+    <p>Make sure your ESP8266 is powered on and publishing to the same MQTT topic.</p>
+  </div>
+
+  <!-- STATUS ROW -->
+  <div class="status-row">
+    <div class="schip sc-online">
+      <div class="schip-ico">📡</div>
+      <div><div class="schip-lbl">Device</div><div class="schip-val">Online</div></div>
+    </div>
+    <div class="schip sc-model" id="chip-model">
+      <div class="schip-ico">🧠</div>
+      <div><div class="schip-lbl">AI Model</div><div class="schip-val" id="model-st">Warming Up</div></div>
+    </div>
+    <div class="schip sc-uptime">
+      <div class="schip-ico">⏱️</div>
+      <div><div class="schip-lbl">Uptime</div><div class="schip-val" id="uptime">—</div></div>
+    </div>
+  </div>
+
+  <!-- TOKEN TRACKER -->
+  <div class="sec-hdr">
+    🎫 Token Tracker — RFID Verification Window
+    <span class="sec-badge" id="tok-badge">0 / 5 ACTIVE</span>
+  </div>
+  <div class="tok-grid" id="tok-grid">
+    <!-- Rendered by JS -->
+  </div>
+  <div class="tok-summary">
+    <div class="ts-item"><div class="ts-dot" style="background:var(--txt3)"></div>Empty: <strong id="ts-empty">5</strong></div>
+    <div class="ts-item"><div class="ts-dot" style="background:var(--amber)"></div>Pending: <strong id="ts-pend" style="color:var(--amber)">0</strong></div>
+    <div class="ts-item"><div class="ts-dot" style="background:var(--green)"></div>Verified: <strong id="ts-verif" style="color:var(--green)">0</strong></div>
+    <div class="ts-item"><div class="ts-dot" style="background:var(--red)"></div>Expired: <strong id="ts-exp" style="color:var(--red)">0</strong></div>
+  </div>
+
+  <!-- METRIC CARDS -->
+  <div class="sec-hdr">📊 Live Metrics</div>
+  <div class="metrics">
+    <div class="mcard mcard-queue">
+      <div class="mcard-bar"></div>
+      <div class="mcard-icon">🔢</div>
+      <div class="mcard-lbl">Queue Length</div>
+      <div class="mcard-val" id="v-queue">0</div>
+      <div class="mcard-sub">Verified patients in line</div>
+    </div>
+    <div class="mcard mcard-crowd">
+      <div class="mcard-bar"></div>
+      <div class="mcard-icon">👥</div>
+      <div class="mcard-lbl">People in Area</div>
+      <div class="mcard-val" id="v-crowd">0</div>
+      <div class="mcard-sub">Total tracked (IR edge detect)</div>
+      <div class="mcard-detail">
+        <span style="color:var(--green)">✓ <span id="dv">0</span> verified</span>
+        <span style="color:var(--amber)">⏳ <span id="dp">0</span> pending</span>
+      </div>
+    </div>
+    <div class="mcard mcard-wait">
+      <div class="mcard-bar"></div>
+      <div class="mcard-icon">⏱️</div>
+      <div class="mcard-lbl">Predicted Wait</div>
+      <div class="mcard-val" id="v-wait">0.0<small style="font-size:0.45em;color:var(--txt3)"> min</small></div>
+      <div class="mcard-sub">On-device weighted model</div>
+      <div class="anomaly-pill ap-na" id="anom-pill">⬜ Collecting data…</div>
+    </div>
+    <div class="mcard mcard-rfid">
+      <div class="mcard-bar"></div>
+      <div class="mcard-icon">🪪</div>
+      <div class="mcard-lbl">Last RFID Tag</div>
+      <div class="mcard-val" id="v-rfid">NONE</div>
+      <div class="mcard-sub">Last scanned patient</div>
+    </div>
+  </div>
+
+  <!-- MINI HISTORY CHART -->
+  <div class="sec-hdr">📈 People Count History (last 20 readings)</div>
+  <div class="chart-wrap">
+    <div class="chart-row" id="chart-row">
+      <!-- Bars rendered by JS -->
+    </div>
+  </div>
+
+  <!-- ML FEATURES -->
+  <div class="sec-hdr">🧠 On-Device AI Features</div>
+  <div class="feats">
+    <div class="feat">
+      <div class="feat-lbl">Rolling Avg (5)</div>
+      <div class="feat-val" id="f-roll">0.00</div>
+      <div class="feat-desc">Moving average of people count</div>
+    </div>
+    <div class="feat">
+      <div class="feat-lbl">Entry Velocity</div>
+      <div class="feat-val" id="f-vel">0.00</div>
+      <div class="feat-desc">Rate of change in crowd</div>
+    </div>
+    <div class="feat">
+      <div class="feat-lbl">Queue Pressure</div>
+      <div class="feat-val" id="f-press">0.00</div>
+      <div class="feat-desc">queue / (people + 1)</div>
+    </div>
+    <div class="feat">
+      <div class="feat-lbl">Anomaly Z-Score</div>
+      <div class="feat-val" id="f-z">0.00</div>
+      <div class="feat-desc">Statistical deviation</div>
+    </div>
+  </div>
+
+  <!-- SESSION STATS -->
+  <div class="sec-hdr">📋 Session Statistics</div>
+  <div class="sstats">
+    <div class="sstat"><div class="sstat-val" id="ss-ent">0</div><div class="sstat-lbl">Entries</div></div>
+    <div class="sstat"><div class="sstat-val" id="ss-ext">0</div><div class="sstat-lbl">Exits</div></div>
+    <div class="sstat"><div class="sstat-val" id="ss-rfid">0</div><div class="sstat-lbl">RFID Scans</div></div>
+    <div class="sstat"><div class="sstat-val" id="ss-exp">0</div><div class="sstat-lbl">Expired</div></div>
+    <div class="sstat"><div class="sstat-val" id="ss-pts">0</div><div class="sstat-lbl">Data Points</div></div>
+  </div>
+
+  <!-- FOOTER -->
+  <div class="ftr">
+    AIoT Smart Hospital Monitor &nbsp;·&nbsp; <strong>100% On-Device + MQTT</strong> &nbsp;·&nbsp;
+    RFID Token Verification · IR Edge Detection · Z-Score Anomaly Detection<br/>
+    <a href="https://github.com" target="_blank">GitHub</a> ·
+    Powered by ESP8266 → MQTT → GitHub Pages &nbsp;·&nbsp; No Backend Required
+  </div>
+</div>
+
+<script>
+/* ─────────── STATE ─────────── */
+var client = null;
+var currentTopic = 'eashan4/hospital/queue/data';
+var lastTokens = null;
+var lastFetchTime = 0;
+var historyBars = new Array(20).fill(0);
+var hasData = false;
+
+/* ─────────── MQTT CONNECT ─────────── */
+function connect(topic) {
+  if (client) { try { client.end(true); } catch(e){} }
+  currentTopic = topic || document.getElementById('topic-input').value.trim();
+  if (!currentTopic) return;
+
+  setConnStatus('connecting');
+  document.getElementById('waiting').classList.remove('show');
+
+  var cid = 'hosp_dash_' + Math.random().toString(16).substr(2, 8);
+  client = mqtt.connect('wss://broker.emqx.io:8084/mqtt', {
+    clientId: cid,
+    clean: true,
+    connectTimeout: 6000,
+    reconnectPeriod: 3000,
+  });
+
+  client.on('connect', function() {
+    setConnStatus('connected');
+    client.subscribe(currentTopic, function(err) {
+      if (!err) {
+        console.log('[MQTT] Subscribed to: ' + currentTopic);
+        if (!hasData) showWaiting(true);
+      }
+    });
+  });
+
+  client.on('message', function(t, payload) {
+    try {
+      var d = JSON.parse(payload.toString());
+      hasData = true;
+      showWaiting(false);
+      lastFetchTime = Date.now();
+      lastTokens = d.tokens;
+      render(d);
+    } catch(e) { console.error('[MQTT] Parse error:', e); }
+  });
+
+  client.on('error', function(err) {
+    setConnStatus('error');
+    console.error('[MQTT] Error:', err);
+  });
+
+  client.on('offline', function() { setConnStatus('connecting'); });
+  client.on('reconnect', function() { setConnStatus('connecting'); });
+}
+
+function reconnect() {
+  hasData = false;
+  connect(document.getElementById('topic-input').value.trim());
+}
+
+function setConnStatus(st) {
+  var el = document.getElementById('conn-status');
+  el.className = 'conn-status';
+  if (st === 'connected') { el.classList.add('conn-connected'); el.textContent = '✓ Connected'; }
+  else if (st === 'error') { el.classList.add('conn-error'); el.textContent = '✗ Error'; }
+  else { el.classList.add('conn-connecting'); el.textContent = '⟳ Connecting…'; }
+}
+
+function showWaiting(s) {
+  document.getElementById('waiting').style.display = s ? 'block' : 'none';
+}
+
+/* ─────────── RENDER ─────────── */
+function fmtUptime(s) {
+  var h = Math.floor(s/3600), m = Math.floor((s%3600)/60), sec = s%60;
+  return (h>0?h+'h ':'')+(m>0?m+'m ':'')+sec+'s';
+}
+
+function render(d) {
+  document.getElementById('last-upd').textContent = 'Updated: ' + new Date().toLocaleTimeString();
+
+  /* Metric cards */
+  document.getElementById('v-queue').innerHTML = d.queue_length;
+  document.getElementById('v-crowd').textContent = d.people_count;
+  document.getElementById('v-wait').innerHTML = d.predicted_wait
+    + '<small style="font-size:0.45em;color:var(--txt3)"> min</small>';
+  document.getElementById('v-rfid').textContent = d.rfid_tag || 'NONE';
+  document.getElementById('dv').textContent = d.queue_length;
+  document.getElementById('dp').textContent = d.pending_count;
+  document.getElementById('uptime').textContent = fmtUptime(d.uptime_sec);
+
+  /* Model status */
+  var ms = document.getElementById('model-st');
+  var mc = document.getElementById('chip-model');
+  if (d.model_status === 'ready') {
+    ms.textContent = 'Ready ✓';
+    mc.classList.add('rdy');
+  } else {
+    ms.textContent = 'Warming (' + d.history_count + '/5)';
+    mc.classList.remove('rdy');
+  }
+
+  /* Anomaly */
+  var ap = document.getElementById('anom-pill');
+  if (d.model_status !== 'ready') {
+    ap.className = 'anomaly-pill ap-na';
+    ap.textContent = '⬜ Collecting (' + d.history_count + '/5)';
+  } else if (d.anomaly) {
+    ap.className = 'anomaly-pill ap-bad';
+    ap.textContent = '🔴 ANOMALY  Z=' + d.anomaly_z_score;
+    document.body.style.background = 'radial-gradient(ellipse at 50% 0%,rgba(255,71,87,0.06),transparent 60%),' +
+      'radial-gradient(ellipse 60% 40% at 10% 0%,rgba(79,142,247,0.07),transparent 60%)';
+  } else {
+    ap.className = 'anomaly-pill ap-ok';
+    ap.textContent = '✅ Normal';
+    document.body.style.background = '';
+  }
+
+  /* ML features */
+  document.getElementById('f-roll').textContent = d.rolling_avg_people;
+  document.getElementById('f-vel').textContent = d.entry_velocity;
+  document.getElementById('f-press').textContent = d.queue_pressure;
+  document.getElementById('f-z').textContent = d.anomaly_z_score;
+
+  /* Session stats */
+  document.getElementById('ss-ent').textContent = d.total_entries;
+  document.getElementById('ss-ext').textContent = d.total_exits;
+  document.getElementById('ss-rfid').textContent = d.total_rfid_scans;
+  document.getElementById('ss-exp').textContent = d.total_expired;
+  document.getElementById('ss-pts').textContent = d.history_count;
+
+  /* Expired token summary */
+  document.getElementById('ts-exp').textContent = d.total_expired;
+
+  /* Tokens */
+  renderTokens(d.tokens, 0);
+
+  /* History chart */
+  historyBars.push(d.people_count);
+  if (historyBars.length > 20) historyBars.shift();
+  renderChart();
+}
+
+/* ─────────── TOKEN RENDERER ─────────── */
+function renderTokens(tokens, elapsed) {
+  var html = '';
+  var active = 0, pending = 0, verified = 0;
+  for (var i = 0; i < 5; i++) {
+    var t = tokens[i];
+    if (!t.active) {
+      html += '<div class="tok tok-empty">'
+        + '<div class="tok-slot">SLOT ' + (i+1) + '</div>'
+        + '<div class="tok-emo">○</div>'
+        + '<div class="tok-st tok-empty-st">EMPTY</div>'
+        + '</div>';
+    } else if (t.verified) {
+      active++; verified++;
+      html += '<div class="tok tok-verified">'
+        + '<div class="tok-slot">TOKEN #' + t.token_id + '</div>'
+        + '<div class="tok-emo">✅</div>'
+        + '<div class="tok-st tok-verified-st">VERIFIED</div>'
+        + '<div class="tok-rfid">' + t.rfid + '</div>'
+        + '</div>';
+    } else {
+      active++; pending++;
+      var rem = Math.max(0, t.remaining_ms - elapsed);
+      var secs = Math.ceil(rem / 1000);
+      var pct = (rem / 10000) * 100;
+      var urgClr = secs <= 3 ? 'color:var(--red)' : 'color:var(--amber)';
+      html += '<div class="tok tok-pending">'
+        + '<div class="tok-slot">TOKEN #' + t.token_id + '</div>'
+        + '<div class="tok-emo">⏳</div>'
+        + '<div class="tok-timer" id="tmr-' + i + '" style="' + urgClr + '">' + secs + 's</div>'
+        + '<div class="tok-st tok-pending-st">SCAN RFID</div>'
+        + '<div class="cdown-bar"><div class="cdown-fill" id="bar-' + i + '" style="width:' + pct + '%"></div></div>'
+        + '</div>';
+    }
+  }
+  document.getElementById('tok-grid').innerHTML = html;
+  document.getElementById('tok-badge').textContent = active + ' / 5 ACTIVE';
+  document.getElementById('ts-empty').textContent = (5 - active);
+  document.getElementById('ts-pend').textContent = pending;
+  document.getElementById('ts-verif').textContent = verified;
+}
+
+/* ─────────── SMOOTH COUNTDOWN ─────────── */
+function tickCountdown() {
+  if (!lastTokens) return;
+  var elapsed = Date.now() - lastFetchTime;
+  for (var i = 0; i < 5; i++) {
+    var t = lastTokens[i];
+    if (t.active && !t.verified) {
+      var rem = Math.max(0, t.remaining_ms - elapsed);
+      var secs = Math.ceil(rem / 1000);
+      var pct = (rem / 10000) * 100;
+      var tmr = document.getElementById('tmr-' + i);
+      var bar = document.getElementById('bar-' + i);
+      if (tmr) { tmr.textContent = secs + 's'; tmr.style.color = secs <= 3 ? 'var(--red)' : 'var(--amber)'; }
+      if (bar) bar.style.width = pct + '%';
+    }
+  }
+}
+
+/* ─────────── MINI CHART ─────────── */
+function renderChart() {
+  var maxVal = Math.max.apply(null, historyBars) || 1;
+  var html = '';
+  for (var i = 0; i < historyBars.length; i++) {
+    var h = Math.max(4, (historyBars[i] / maxVal) * 56);
+    var recent = i === historyBars.length - 1;
+    var clr = recent ? 'var(--accent)' : 'var(--accent-dim)';
+    html += '<div class="chart-bar" style="height:' + h + 'px;background:' + clr + '"></div>';
+  }
+  document.getElementById('chart-row').innerHTML = html;
+}
+
+/* ─────────── INIT ─────────── */
+/* Pre-render empty token grid */
+var emptyHtml = '';
+for (var i = 0; i < 5; i++) {
+  emptyHtml += '<div class="tok tok-empty">'
+    + '<div class="tok-slot">SLOT ' + (i+1) + '</div>'
+    + '<div class="tok-emo">○</div>'
+    + '<div class="tok-st tok-empty-st">EMPTY</div>'
+    + '</div>';
+}
+document.getElementById('tok-grid').innerHTML = emptyHtml;
+renderChart();
+
+setInterval(tickCountdown, 200);
+connect(currentTopic);
+</script>
+</body>
+</html>

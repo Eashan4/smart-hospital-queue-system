@@ -1,0 +1,63 @@
+name: Bug report
+description: Something is not working as documented
+labels: [bug]
+body:
+  - type: dropdown
+    id: area
+    attributes:
+      label: Which part is affected?
+      options:
+        - Dashboard (index.html)
+        - Firmware (ESP8266 sketch)
+        - Backend (server/)
+        - Documentation
+        - Not sure
+    validations:
+      required: true
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: What did you expect, and what happened instead?
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Flashed the sketch with topic '...'
+        2. Opened the dashboard
+        3. ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Serial Monitor / browser console output
+      description: >
+        For firmware issues, Serial Monitor at 115200 baud. For dashboard issues,
+        the browser console (F12). This is pasted as code, so no backticks needed.
+      render: shell
+
+  - type: input
+    id: mqtt-topic
+    attributes:
+      label: MQTT topic
+      description: >
+        The topic set in the sketch and in the dashboard. A mismatch between the two
+        is by far the most common cause of "Waiting for ESP8266 data".
+      placeholder: yourname/hospital/queue/data
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      placeholder: |
+        - Board: NodeMCU 1.0 (ESP-12E)
+        - Arduino IDE / ESP8266 core version:
+        - Browser:
+        - Python version (backend issues only):

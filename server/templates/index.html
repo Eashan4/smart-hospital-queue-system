@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AIoT Smart Hospital — Queue & Crowd Monitor</title>
+  <meta name="description" content="AI-powered real-time hospital queue and crowd monitoring system using RFID, IR sensors and machine learning." />
+
+  <!-- Fonts & CSS -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
+  <link rel="stylesheet" href="{{ url_for('static', filename='animations.css') }}" />
+
+  <!-- Favicon -->
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏥</text></svg>" />
+</head>
+<body class="state-normal">
+
+<div class="app-wrapper">
+
+  <!-- ── Header ─────────────────────────────────────────── -->
+  <header class="header fade-in">
+    <div class="header-left">
+      <h1>🏥 Smart Hospital Queue Monitor</h1>
+      <p>AI-Based Crowd & Queue Intelligence — RFID + IR + ML (RandomForest + IsolationForest)</p>
+    </div>
+    <div class="header-right">
+      <span class="live-badge">
+        <span class="dot-pulse dot-online"></span>
+        LIVE
+      </span>
+      <button class="refresh-btn" id="refresh-btn">↻ Refresh</button>
+    </div>
+  </header>
+
+  <!-- ── System Status Panel ────────────────────────────── -->
+  <div class="status-panel fade-in">
+
+    <div class="status-item">
+      <span id="dot-device" class="dot-pulse dot-offline"></span>
+      <div>
+        <div class="status-label">ESP8266 Device</div>
+        <div id="txt-device" class="status-value status-offline">Offline</div>
+      </div>
+    </div>
+
+    <div class="status-divider"></div>
+
+    <div class="status-item">
+      <span id="dot-model" class="dot-pulse dot-warning"></span>
+      <div>
+        <div class="status-label">ML Model</div>
+        <div id="txt-model" class="status-value status-warning">Not Ready</div>
+      </div>
+    </div>
+
+    <div class="status-divider"></div>
+
+    <div class="status-item">
+      <div>
+        <div class="status-label">Last Update</div>
+        <div id="last-update-time" class="status-value" style="font-family:'JetBrains Mono',monospace; font-size:0.82rem; color:#7ea4c8;">—</div>
+      </div>
+    </div>
+
+    <div class="status-divider"></div>
+
+    <!-- Row count / threshold indicator -->
+    <div class="status-item" style="flex:1; justify-content:flex-end;">
+      <div class="data-strip" style="border:none; background:none; padding:0; margin:0;">
+        <span>Dataset: <strong id="row-count">?</strong> rows
+          <span id="threshold-warn" class="threshold-warn" style="display:none;"></span>
+        </span>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ── Alert Banner ───────────────────────────────────── -->
+  <div class="alert-banner" id="alert-banner" role="alert">
+    <span class="alert-icon">⚠️</span>
+    <span id="alert-msg"></span>
+  </div>
+
+  <!-- ── No Data Card ───────────────────────────────────── -->
+  <div class="no-data-card" id="no-data-card">
+    <div class="no-data-icon">📡</div>
+    <div class="no-data-title">No Sensor Data</div>
+    <p class="no-data-sub" id="no-data-reason">Waiting for device…</p>
+    <div class="dots">
+      <span></span><span></span><span></span>
+    </div>
+  </div>
+
+  <!-- ── Metric Cards ───────────────────────────────────── -->
+  <div class="metrics-grid" id="metrics-grid">
+
+    <!-- Queue Length -->
+    <div class="metric-card card-queue" id="card-queue" style="animation-delay:0.0s">
+      <div class="card-icon icon-queue">🔢</div>
+      <div class="card-label">Queue Length</div>
+      <div class="card-value skeleton" id="val-queue">——</div>
+      <div class="card-sub" id="sub-queue">Patients currently in line</div>
+    </div>
+
+    <!-- People Count / Crowd -->
+    <div class="metric-card card-crowd" id="card-crowd" style="animation-delay:0.1s">
+      <div class="card-icon icon-crowd">👥</div>
+      <div class="card-label">People in Area</div>
+      <div class="card-value skeleton" id="val-crowd">——</div>
+      <div class="card-sub" id="sub-crowd">IR sensor count (real-time)</div>
+    </div>
+
+    <!-- Predicted Wait Time -->
+    <div class="metric-card card-wait" id="card-wait" style="animation-delay:0.2s">
+      <div class="card-icon icon-wait">⏱️</div>
+      <div class="card-label">Predicted Wait</div>
+      <div class="card-value skeleton" id="val-wait">——</div>
+      <div class="card-sub" id="sub-wait">ML estimate (RandomForest)</div>
+      <div id="anomaly-badge" class="anomaly-badge anomaly-na">⬜ No anomaly data</div>
+    </div>
+
+    <!-- Current Patient / RFID -->
+    <div class="metric-card card-patient" id="card-patient" style="animation-delay:0.3s">
+      <div class="card-icon icon-patient">🪪</div>
+      <div class="card-label">Current RFID Tag</div>
+      <div class="card-value-patient" id="val-patient">—</div>
+      <div class="card-sub">Last scanned patient tag</div>
+    </div>
+
+  </div>
+
+  <!-- ── Footer ─────────────────────────────────────────── -->
+  <footer class="footer">
+    AIoT Smart Hospital Monitor &nbsp;·&nbsp; RFID + IR + RandomForest + IsolationForest
+    &nbsp;·&nbsp; Data sourced from ESP8266 only — no simulated values
+  </footer>
+
+</div><!-- /.app-wrapper -->
+
+<script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+</html>

@@ -1,0 +1,85 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    name: Backend (Python ${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.9", "3.12"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+          cache-dependency-path: server/requirements.txt
+
+      - name: Install dependencies
+        working-directory: server
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Byte-compile sources
+        working-directory: server
+        run: python -m compileall -q .
+
+      - name: Run API smoke tests
+        working-directory: server
+        run: python -m unittest discover -s tests -v
+
+  dashboard:
+    name: Dashboard (HTML)
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check the Pages entry point exists and is well-formed
+        run: |
+          test -f index.html || { echo "::error::index.html missing from repo root — GitHub Pages needs it there"; exit 1; }
+          python3 - <<'PY'
+          import html.parser, sys
+
+          class Check(html.parser.HTMLParser):
+              def __init__(self):
+                  super().__init__()
+                  self.saw_title = False
+                  self.in_title = False
+                  self.title = ""
+
+              def handle_starttag(self, tag, attrs):
+                  if tag == "title":
+                      self.in_title = True
+
+              def handle_endtag(self, tag):
+                  if tag == "title":
+                      self.in_title = False
+                      self.saw_title = True
+
+              def handle_data(self, data):
+                  if self.in_title:
+                      self.title += data
+
+          source = open("index.html", encoding="utf-8").read()
+          parser = Check()
+          parser.feed(source)
+
+          if not parser.saw_title:
+              print("::error::index.html has no <title>")
+              sys.exit(1)
+          print(f"index.html parsed cleanly — title: {parser.title.strip()!r}")
+          PY

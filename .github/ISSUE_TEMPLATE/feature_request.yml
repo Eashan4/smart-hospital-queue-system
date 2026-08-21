@@ -1,0 +1,40 @@
+name: Feature request
+description: Suggest an improvement or a new capability
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem would this solve?
+      description: Describe the situation you run into, rather than the solution you have in mind.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What would you like to see?
+    validations:
+      required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Which part would this touch?
+      multiple: true
+      options:
+        - Dashboard (index.html)
+        - Firmware (ESP8266 sketch)
+        - Backend (server/)
+        - Documentation
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: constraints
+    attributes:
+      label: Design constraints
+      description: These keep the project deployable with zero hosting cost.
+      options:
+        - label: This keeps the dashboard a single self-contained file with no build step
+        - label: This does not require a paid service or an always-on server
