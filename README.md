@@ -29,11 +29,6 @@ This project solves it with a self-contained AIoT device. A single **ESP8266 Nod
 
 A static dashboard hosted on **GitHub Pages** subscribes to that same broker over secure WebSockets and renders live metrics to anyone in the world — no server, no database, no cloud account, no hosting bill.
 
-> **This repository is the consolidated home of the project.** It supersedes two
-> earlier repositories — [Smart-Hospital-Queue-Monitor](https://github.com/Eashan4/Smart-Hospital-Queue-Monitor)
-> (the backendless MQTT edge system) and [Smart-Hospital-Queue-Crowd-Monitoring-System](https://github.com/Eashan4/Smart-Hospital-Queue-Crowd-Monitoring-System)
-> (the Flask + scikit-learn backend) — bringing the **edge deployment** and the
-> **optional research backend** together in one place. Development continues here.
 
 ### Why it's interesting
 
@@ -295,10 +290,7 @@ Open `index.html` and set the default topic to **exactly** the string you used i
 var currentTopic = 'yourname/hospital/queue/data';
 ```
 
-> ⚠️ **These two must match or the dashboard will sit on "Waiting for ESP8266 data…".**
-> The shipped defaults currently differ (`umang037/data` in the firmware vs.
-> `smarthospital/queue/umang/data` in the dashboard), so set both explicitly.
-> You can also change the topic live from the dashboard's topic bar without redeploying.
+> These two must match or the dashboard will sit on "Waiting for ESP8266 data…". You can also change the topic live from the dashboard's topic bar without redeploying.
 
 ### 4 — Flash the device
 
@@ -307,7 +299,7 @@ var currentTopic = 'yourname/hospital/queue/data';
 3. Open Serial Monitor at **115200 baud**. A healthy boot looks like:
 
 ```
-[WiFi]  ✓ Connected — IP: 192.168.1.42
+[WiFi]  ✓ Connected — IP: 192.168.x.x
 [MQTT]  ✓ Connected!
 [MQTT]  Publishing to topic: yourname/hospital/queue/data
 [MQTT]  ✓ Published 512 bytes
@@ -394,8 +386,7 @@ Reach it at `http://<device-ip>/` — the IP is printed to Serial on boot.
 
 ## 🐍 Optional Flask + scikit-learn Backend
 
-The `server/` directory carries the project's original architecture, merged in from the
-[Smart-Hospital-Queue-Crowd-Monitoring-System](https://github.com/Eashan4/Smart-Hospital-Queue-Crowd-Monitoring-System) repository. **It is entirely optional** — the live system does not depend on it.
+The `server/` directory carries the project's original architecture, originally developed as a separate repository. **It is entirely optional** — the live system does not depend on it.
 
 It exists for the cases the edge model can't cover: training heavier models on accumulated history, batch analysis, and keeping a durable CSV record.
 
